@@ -4,6 +4,7 @@ const { Server } = require('socket.io');
 const Redis = require('ioredis');
 const cors = require('cors');
 
+
 const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
 const app = express();
 
@@ -14,44 +15,41 @@ const io = new Server(server, {
     cors: { origin: "*", methods: ["GET", "POST"] }
 });
 
-const roomSpeaker = {};
 
-function generateRoomId() {
-    return Math.floor(10000000 + Math.random() * 90000000).toString();
-}
+const roomSpeaker = {};
 
 io.on('connection', (socket) => {
     
+
     socket.on('join_room', async ({ roomId, token }) => {
         const storedHostToken = await redis.get(`room:${roomId}`);
-        
-        if (!storedHostToken && !token) { 
-        }
-
         const isHost = (token && token === storedHostToken);
         
+
         const usersInRoom = Array.from(io.sockets.adapter.rooms.get(roomId) || []);
         
         socket.join(roomId);
-        
+
         socket.emit('joined_success', { roomId, isHost, allUsers: usersInRoom });
         
+
         socket.to(roomId).emit('user_joined', socket.id);
+
 
         if (roomSpeaker[roomId]) {
             socket.emit('channel_busy', roomSpeaker[roomId]);
         }
         
-        const count = io.sockets.adapter.rooms.get(roomId)?.size || 0;
-        io.to(roomId).emit('update_user_count', count);
+        updateUserCount(roomId);
     });
 
     socket.on('create_room', async () => {
-        const roomId = generateRoomId();
+        const roomId = Math.floor(10000000 + Math.random() * 90000000).toString();
         const hostToken = Math.random().toString(36).substring(2);
-        await redis.set(`room:${roomId}`, hostToken, 'EX', 86400); 
+        await redis.set(`room:${roomId}`, hostToken, 'EX', 86400);
         socket.emit('room_created', { roomId, hostToken });
     });
+
 
     socket.on('sending_signal', (payload) => {
         io.to(payload.userToSignal).emit('user_joined_signal', { 
@@ -67,6 +65,7 @@ io.on('connection', (socket) => {
         });
     });
 
+
     socket.on('start_talking', (roomId) => {
         if (!roomSpeaker[roomId]) {
             roomSpeaker[roomId] = socket.id;
@@ -81,6 +80,7 @@ io.on('connection', (socket) => {
         }
     });
     
+
     socket.on('destroy_room', async ({ roomId, token }) => {
         const storedHostToken = await redis.get(`room:${roomId}`);
         if (token === storedHostToken) {
@@ -99,12 +99,19 @@ io.on('connection', (socket) => {
                 socket.to(roomId).emit('channel_free');
             }
             socket.to(roomId).emit('user_left', socket.id);
-            
-            const count = (io.sockets.adapter.rooms.get(roomId)?.size || 1) - 1;
-            socket.to(roomId).emit('update_user_count', count);
+
+            setTimeout(() => updateUserCount(roomId), 100);
         });
     });
+    
+    function updateUserCount(roomId) {
+
+        const room = io.sockets.adapter.rooms.get(roomId);
+        if(room) {
+            io.to(roomId).emit('update_user_count', room.size);
+        }
+    }
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`WebRTC Signaling Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`Signaling Server running on port ${PORT}`));
