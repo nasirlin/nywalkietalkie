@@ -4,431 +4,305 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>NY Walkie-Talkie</title>
-    
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#212529">
-    <link rel="apple-touch-icon" href="icon/icon-192.png">
-    
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     
     <style>
         body {
             background-color: #e9ecef;
-            display: flex;
-            flex-direction: column;
+            display: flex; flex-direction: column;
             min-height: 100vh;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-            overscroll-behavior-y: contain; 
+            align-items: center; justify-content: center;
+            padding: 15px;
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            user-select: none; -webkit-user-select: none;
+            touch-action: manipulation;
         }
 
         .device-chassis {
-            width: 100%;
-            max-width: 480px;
+            width: 100%; max-width: 420px;
             background-color: #212529;
             border: 4px solid #000;
-            border-radius: 8px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-            position: relative;
-            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+            padding: 20px;
             color: #fff;
-            margin-top: 30px;
+            position: relative;
         }
 
         .device-chassis::before {
-            content: '';
-            position: absolute;
-            top: -35px;
-            right: 40px;
-            width: 30px;
-            height: 35px;
-            background-color: #212529;
-            border: 4px solid #000;
-            border-bottom: none;
-            border-radius: 4px 4px 0 0;
+            content: ''; position: absolute;
+            top: -35px; right: 30px; width: 30px; height: 40px;
+            background: #212529; border: 4px solid #000; border-bottom: none;
+            border-radius: 5px 5px 0 0; z-index: -1;
         }
 
         .device-screen {
-            background-color: #ffffff;
-            color: #212529;
-            border: 3px solid #ced4da;
-            border-radius: 4px;
-            padding: 30px;
-            min-height: 350px;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .speaker-grille {
-            margin-top: 25px;
-            height: 30px;
-            background-image: radial-gradient(circle, #000 1.5px, transparent 1.5px);
-            background-size: 6px 6px;
-            opacity: 0.4;
-            border-top: 2px groove #444;
-            border-bottom: 2px groove #444;
-        }
-
-        h1 {
-            font-weight: 700;
-            letter-spacing: -1px;
-            text-transform: uppercase;
-            font-size: 1.5rem;
-            border-bottom: 2px solid #212529;
-            padding-bottom: 15px;
-            margin-bottom: 25px;
-            text-align: center;
-        }
-
-        .btn-primary {
-            background-color: #000;
-            border-color: #000;
-        }
-        .btn-primary:hover, .btn-primary:active {
-            background-color: #333;
-            border-color: #333;
-        }
-
-        .btn-outline-dark {
-            border-width: 2px;
-            font-weight: 600;
-        }
-        
-        .btn-dark-solid {
-            background-color: #000;
-            color: #fff;
-            border: 2px solid #000;
-            font-weight: 600;
-        }
-        .btn-dark-solid:hover {
-            background-color: #333;
-            color: #fff;
-        }
-
-        .btn-danger-bw {
-            color: #000;
-            background-color: #fff;
-            border: 3px solid #000;
-            font-weight: 700;
-            text-transform: uppercase;
-        }
-        .btn-danger-bw:hover {
-            background-color: #000;
-            color: #fff;
-        }
-
-        .form-control {
-            border: 2px solid #ced4da;
-            text-align: center;
-            font-weight: 600;
-            font-size: 1.1rem;
-            letter-spacing: 2px;
-        }
-        .form-control:focus {
-            border-color: #000;
-            box-shadow: none;
-        }
-
-        .status-bar {
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: #495057;
-            margin-bottom: 20px;
-            padding: 10px;
-            background: #f8f9fa;
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-        }
-
-        .status-indicator {
-            width: 10px; height: 10px;
-            background-color: #dc3545;
-            border-radius: 50%;
-            margin-right: 10px;
-        }
-        .status-indicator.active {
-            background-color: #198754;
-        }
-
-        .video-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 15px;
-            margin-top: 10px;
-        }
-
-        .video-card {
-            background: #000;
-            border: 2px solid #212529;
-            border-radius: 4px;
-            overflow: hidden;
+            background-color: #f8f9fa; color: #212529;
+            border: 3px solid #495057; border-radius: 6px;
+            padding: 15px; min-height: 520px;
+            display: flex; flex-direction: column;
+            box-shadow: inset 0 3px 6px rgba(0,0,0,0.2);
             position: relative;
-            aspect-ratio: 4/3;
         }
 
-        .video-content {
-            width: 100%; height: 100%; object-fit: cover;
-            filter: grayscale(80%);
-            display: block;
-            background-color: #000;
+        .top-bar {
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 2px solid #dee2e6; padding-bottom: 10px; margin-bottom: 15px;
+        }
+        h1 { font-size: 1.2rem; font-weight: 800; margin: 0; letter-spacing: -0.5px; }
+        .user-count-badge {
+            background: #212529; color: #fff; padding: 2px 8px;
+            border-radius: 4px; font-size: 0.8rem; font-weight: bold; font-family: monospace;
         }
 
+        .led-container {
+            display: flex; align-items: center; justify-content: center; gap: 15px;
+            margin-bottom: 15px; background: #e9ecef; padding: 8px; border-radius: 30px;
+            border: 1px solid #ced4da;
+        }
+        .led {
+            width: 15px; height: 15px; border-radius: 50%;
+            background-color: #adb5bd;
+            border: 1px solid #6c757d;
+            transition: all 0.2s;
+        }
+        .led-label { font-size: 0.7rem; font-weight: bold; color: #6c757d; margin-left: 5px; }
+        
+        .led.red.active {
+            background-color: #dc3545;
+            box-shadow: 0 0 10px #dc3545;
+            animation: blink 0.5s infinite;
+        }
+        .led.green.active {
+            background-color: #198754;
+            box-shadow: 0 0 10px #198754;
+            animation: blink 0.5s infinite;
+        }
+
+        @keyframes blink { 50% { opacity: 0.3; } }
+
+        .ptt-container { margin-top: auto; padding-top: 10px; }
+        #ptt-button {
+            width: 100%; height: 85px;
+            background: linear-gradient(180deg, #e9ecef 0%, #ced4da 100%);
+            border: 3px solid #495057; border-radius: 8px;
+            color: #212529; font-size: 1.5rem; font-weight: 900;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: all 0.1s;
+            box-shadow: 0 5px 0 #6c757d;
+            -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: none;
+        }
+        #ptt-button:active, #ptt-button.active {
+            transform: translateY(4px); box-shadow: 0 0 0 #6c757d;
+            background: #dc3545; color: white; border-color: #842029;
+        }
+        #ptt-button:disabled {
+            background: #e9ecef; color: #adb5bd; border-color: #dee2e6;
+            cursor: not-allowed; box-shadow: none; transform: none;
+        }
+
+        .video-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+        .video-card { background: #000; aspect-ratio: 4/3; position: relative; border: 1px solid #333; }
+        .video-content { width: 100%; height: 100%; object-fit: cover; filter: grayscale(100%); }
         .video-label {
-            position: absolute;
-            bottom: 0; left: 0; right: 0;
-            background: rgba(0, 0, 0, 0.7);
-            color: #fff;
-            padding: 4px 8px;
-            font-size: 0.75rem;
-            font-weight: 600;
+            position: absolute; bottom: 0; left: 0; background: rgba(0,0,0,0.8);
+            color: #fff; font-size: 0.6rem; padding: 2px 4px;
         }
 
-        footer {
-            margin-top: auto;
-            padding: 20px;
-            color: #6c757d;
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+        .speaker-holes {
+            margin-top: 20px; height: 20px;
+            background-image: radial-gradient(#333 20%, transparent 20%);
+            background-size: 5px 5px; opacity: 0.4;
         }
+        footer { margin-top: 20px; color: #6c757d; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; }
+
+        .form-control { border: 2px solid #ced4da; text-align: center; font-weight: 700; border-radius: 0; }
+        .btn { border-radius: 0; font-weight: 700; text-transform: uppercase; }
+        .btn-primary { background: #000; border: #000; }
     </style>
 </head>
 <body>
 
     <div class="device-chassis">
-        <div class="device-screen text-center">
-            <h1>NY Walkie-Talkie</h1>
+        <div class="device-screen">
+            
+            <div class="top-bar">
+                <h1>NY WALKIE-TALKIE</h1>
+                <div id="user-count-display" class="user-count-badge" style="display:none;">ONLINE: 0</div>
+            </div>
 
             <div id="lobby-view">
-                <p class="text-muted mb-4">Enter 8-digit frequency code to connect.</p>
-                
-                <div class="mb-4 d-flex justify-content-center">
-                    <input type="text" id="room-code-input" class="form-control w-75" placeholder="12345678" maxlength="8">
+                <p class="text-center text-muted mt-5">ENTER FREQUENCY CODE</p>
+                <div class="mb-3">
+                    <input type="text" id="room-code-input" class="form-control" placeholder="CHANNEL ID" maxlength="8">
                 </div>
-
-                <div class="d-grid gap-2 col-10 mx-auto">
-                    <button class="btn btn-primary btn-lg" onclick="App.joinRoom()">JOIN CHANNEL</button>
-                    <button class="btn btn-outline-dark" onclick="App.createRoom()">CREATE NEW CHANNEL</button>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-primary btn-lg" onclick="App.joinRoom()">CONNECT</button>
+                    <button class="btn btn-outline-dark" onclick="App.createRoom()">NEW CHANNEL</button>
                 </div>
             </div>
 
-            <div id="room-view" style="display: none;">
-                <div class="status-bar">
-                    <span class="status-indicator" id="status-indicator"></span>
-                    <span id="connection-text">Connecting...</span>
-                </div>
+            <div id="room-view" style="display: none; height: 100%; flex-direction: column;">
                 
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <div class="fw-bold" style="font-family: monospace; font-size: 1.2rem;">
-                        CH: <span id="room-id-display">--</span>
+                <div class="led-container">
+                    <div style="display:flex; align-items:center;">
+                        <div id="led-tx" class="led red"></div>
+                        <span class="led-label">TX</span>
                     </div>
-                    <button id="btn-video-toggle" class="btn btn-outline-dark btn-sm" onclick="App.toggleVideo()">
-                        START CAMERA
-                    </button>
+                    <div style="display:flex; align-items:center;">
+                        <div id="led-rx" class="led green"></div>
+                        <span class="led-label">RX</span>
+                    </div>
+                </div>
+
+                <div class="text-center mb-2" style="font-family: monospace; font-size: 0.9rem;">
+                    FREQ: <strong id="room-id-display">--</strong>
                 </div>
 
                 <div class="video-grid" id="video-grid">
                     <div class="video-card">
                         <video id="local-video" class="video-content" autoplay muted playsinline></video>
-                        <div class="video-label">LOCAL (YOU)</div>
+                        <div class="video-label">YOU</div>
                     </div>
                 </div>
 
-                <div class="mt-auto pt-4">
-                    <button class="btn btn-outline-dark w-100" onclick="App.leaveRoom()">DISCONNECT</button>
+                <div id="status-text" class="text-center mb-2 fw-bold text-muted" style="font-size: 0.8rem;">
+                    CHANNEL READY
                 </div>
 
-                <div id="host-controls" class="mt-4 pt-3 border-top border-2">
-                    <p class="fw-bold small text-uppercase mb-2">Admin Controls</p>
-                    <button class="btn btn-danger-bw w-100 py-2" onclick="App.destroyRoom()">TERMINATE ALL SIGNALS</button>
+                <div class="ptt-container">
+                    <button id="ptt-button" disabled>HOLD TO TALK</button>
                 </div>
+
+                <div class="d-flex gap-2 mt-3">
+                    <button class="btn btn-outline-dark btn-sm flex-grow-1" onclick="App.leaveRoom()">LEAVE</button>
+                    <button id="host-destroy-btn" class="btn btn-danger btn-sm flex-grow-1" style="display:none;" onclick="App.destroyRoom()">DESTROY</button>
+                </div>
+
             </div>
-        </div> <div class="speaker-grille"></div>
+        </div>
+        
+        <div class="speaker-holes"></div>
+    </div>
 
-    </div> <footer>
-        Copyright 2025 Nasir
-    </footer>
+    <footer>Copyright 2025 Nasir</footer>
 
     <canvas id="snapshot-canvas" width="320" height="240" style="display: none;"></canvas>
 
     <script>
-       
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./sw.js')
-                .then(() => console.log('Service Worker Registered'))
-                .catch((err) => console.log('Service Worker Failed', err));
-        }
-
         const CONFIG = {
             SERVER_URL: "https://nywalkietalkie.onrender.com",
-            VIDEO_FPS: 5, 
+            VIDEO_FPS: 5,
         };
 
         const App = {
             socket: null,
             mediaRecorder: null,
-            audioStream: null, 
-            videoStream: null, 
+            localStream: null,
             videoInterval: null,
-            isVideoActive: false, 
+            isTalking: false,
+            isChannelBusy: false,
+            
             canvas: document.getElementById('snapshot-canvas'),
             ctx: document.getElementById('snapshot-canvas').getContext('2d'),
-            
+            pttBtn: document.getElementById('ptt-button'),
+            statusText: document.getElementById('status-text'),
+            ledTx: document.getElementById('led-tx'),
+            ledRx: document.getElementById('led-rx'),
+            userCountBadge: document.getElementById('user-count-display'),
+
             init: function() {
                 this.socket = io(CONFIG.SERVER_URL);
                 this.bindSocketEvents();
                 this.checkAutoLogin();
+                this.bindPTTLogic();
             },
 
-            bindSocketEvents: function() {
-                const s = this.socket;
-                s.on('connect', () => console.log('Connected to server'));
-                s.on('room_created', ({ roomId, hostToken }) => {
-                    this.saveSession(roomId, hostToken);
-                    this.enterRoomUI(roomId, true);
-                    this.startAudio(); 
-                });
-                s.on('joined_success', ({ roomId, isHost }) => {
-                    this.saveSession(roomId, null);
-                    this.enterRoomUI(roomId, isHost);
-                    this.startAudio(); 
-                });
-                s.on('play_audio', ({ userId, data }) => this.playAudio(data));
-                s.on('update_video_frame', ({ userId, frame }) => this.updateRemoteVideo(userId, frame));
-                s.on('user_left', (userId) => this.removeRemoteVideo(userId));
-                s.on('room_destroyed', () => {
-                    alert('CHANNEL TERMINATED BY HOST.');
-                    this.resetApp();
-                });
-                s.on('error_msg', (msg) => {
-                    alert('ERROR: ' + msg);
-                    this.resetApp();
-                });
-            },
-
-            checkAutoLogin: function() {
-                const savedRoom = localStorage.getItem('ny_room_id');
-                const savedToken = localStorage.getItem('ny_host_token');
-                if (savedRoom) {
-                    console.log('Restoring session...');
-                    this.socket.emit('join_room', { roomId: savedRoom, token: savedToken });
-                }
-            },
-
-            createRoom: function() {
-                this.socket.emit('create_room');
-            },
-
-            joinRoom: function() {
-                const code = document.getElementById('room-code-input').value.trim();
-                if (code.length !== 8 || isNaN(code)) {
-                    alert('INVALID CODE. Enter 8 digits.');
-                    return;
-                }
-                const savedToken = localStorage.getItem('ny_host_token');
-                this.socket.emit('join_room', { roomId: code, token: savedToken });
-            },
-
-            leaveRoom: function() {
-                if(confirm('Confirm disconnect?')) {
-                    this.resetApp();
-                }
-            },
-
-            destroyRoom: function() {
-                if(confirm('WARNING: This will cut all connections. Proceed?')) {
-                    const roomId = localStorage.getItem('ny_room_id');
-                    const token = localStorage.getItem('ny_host_token');
-                    this.socket.emit('destroy_room', { roomId, token });
-                }
-            },
-
-           
-            startAudio: async function() {
-                try {
-                    this.audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            bindPTTLogic: function() {
+                const startTalk = (e) => {
+                    if(e.cancelable) e.preventDefault();
+                    if (this.isChannelBusy || !this.mediaRecorder) return;
                     
-                    this.mediaRecorder = new MediaRecorder(this.audioStream);
+                    this.isTalking = true;
+                    this.socket.emit('start_talking', localStorage.getItem('ny_room_id'));
+                    
+                    this.pttBtn.classList.add('active');
+                    this.pttBtn.innerText = "TRANSMITTING";
+                    this.statusText.innerText = "● ON AIR";
+                    this.statusText.style.color = "#dc3545";
+                    this.ledTx.classList.add('active');
+                };
+
+                const stopTalk = (e) => {
+                    if(e.cancelable) e.preventDefault();
+                    if (!this.isTalking) return;
+
+                    this.isTalking = false;
+                    this.socket.emit('stop_talking', localStorage.getItem('ny_room_id'));
+
+                    this.pttBtn.classList.remove('active');
+                    this.pttBtn.innerText = "HOLD TO TALK";
+                    this.statusText.innerText = "CHANNEL READY";
+                    this.statusText.style.color = "#6c757d";
+                    this.ledTx.classList.remove('active');
+                };
+
+                this.pttBtn.addEventListener('mousedown', startTalk);
+                window.addEventListener('mouseup', stopTalk);
+
+                this.pttBtn.addEventListener('touchstart', startTalk, { passive: false });
+                this.pttBtn.addEventListener('touchend', stopTalk, { passive: false });
+            },
+
+            startMedia: async function() {
+                try {
+                    this.localStream = await navigator.mediaDevices.getUserMedia({ 
+                        audio: true, 
+                        video: { width: 320, height: 240, facingMode: "user" } 
+                    });
+                    
+                    const localVideo = document.getElementById('local-video');
+                    localVideo.srcObject = this.localStream;
+
+                    this.mediaRecorder = new MediaRecorder(this.localStream);
+                    
                     this.mediaRecorder.ondataavailable = (e) => {
-                        if (e.data.size > 0 && this.socket.connected) {
+                        if (this.isTalking && e.data.size > 0 && this.socket.connected) {
                             this.socket.emit('voice_data', { 
                                 roomId: localStorage.getItem('ny_room_id'), 
                                 data: e.data 
                             });
                         }
                     };
-                    this.mediaRecorder.start(100);
-                    console.log("Audio started");
+
+                    this.mediaRecorder.start(100); 
+
+                    if(!this.isChannelBusy) {
+                        this.pttBtn.disabled = false;
+                    }
+
+                    this.startVideoBroadcasting(localVideo);
+
                 } catch (err) {
-                    console.error("Audio Access Error:", err);
-                    alert("Microphone Access Denied. You can hear others but cannot speak.");
-                }
-            },
-
-            toggleVideo: async function() {
-                const btn = document.getElementById('btn-video-toggle');
-                
-                if (!this.isVideoActive) {
-
-                    try {
-                        this.videoStream = await navigator.mediaDevices.getUserMedia({ 
-                            video: { width: 320, height: 240, facingMode: "user" } 
-                        });
-                        const localVideo = document.getElementById('local-video');
-                        localVideo.srcObject = this.videoStream;
-                        
-                        this.startVideoBroadcasting(localVideo);
-                        
-      
-                        this.isVideoActive = true;
-                        btn.innerText = "STOP CAMERA";
-                        btn.classList.remove('btn-outline-dark');
-                        btn.classList.add('btn-dark-solid');
-                        
-                    } catch (err) {
-                        console.error("Camera Error:", err);
-                        alert("Camera Access Denied or Error.");
-                    }
-                } else {
-
-                    if (this.videoStream) {
-                        this.videoStream.getTracks().forEach(track => track.stop());
-                        this.videoStream = null;
-                    }
-                    if (this.videoInterval) {
-                        clearInterval(this.videoInterval);
-                        this.videoInterval = null;
-                    }
-                    document.getElementById('local-video').srcObject = null;
-                    
-
-                    this.isVideoActive = false;
-                    btn.innerText = "START CAMERA";
-                    btn.classList.remove('btn-dark-solid');
-                    btn.classList.add('btn-outline-dark');
+                    console.error("Device Error:", err);
+                    alert("Hardware Access Denied. Check permissions.");
+                    this.resetApp();
                 }
             },
 
             startVideoBroadcasting: function(videoElement) {
                 if (this.videoInterval) clearInterval(this.videoInterval);
-                const intervalMs = 1000 / CONFIG.VIDEO_FPS;
-                
                 this.videoInterval = setInterval(() => {
-                    if (!this.socket.connected || !this.videoStream) return;
-                    
+                    if (!this.socket.connected || !this.localStream) return;
                     this.ctx.drawImage(videoElement, 0, 0, this.canvas.width, this.canvas.height);
                     const frame = this.canvas.toDataURL('image/jpeg', 0.5);
                     this.socket.emit('video_frame', { 
                         roomId: localStorage.getItem('ny_room_id'), 
                         frame: frame 
                     });
-                }, intervalMs);
+                }, 1000 / CONFIG.VIDEO_FPS);
             },
-
 
             playAudio: async function(blobData) {
                 try {
@@ -440,73 +314,102 @@
                 } catch (e) {}
             },
 
+            bindSocketEvents: function() {
+                const s = this.socket;
+                
+                s.on('connect', () => console.log('Connected'));
+                s.on('room_created', ({ roomId, hostToken }) => {
+                    this.saveSession(roomId, hostToken);
+                    this.enterRoomUI(roomId, true);
+                    this.startMedia();
+                });
+                s.on('joined_success', ({ roomId, isHost }) => {
+                    this.saveSession(roomId, null);
+                    this.enterRoomUI(roomId, isHost);
+                    this.startMedia();
+                });
+
+                s.on('update_user_count', (count) => {
+                    this.userCountBadge.innerText = `ONLINE: ${count}`;
+                });
+
+                s.on('channel_busy', (speakerId) => {
+                    this.isChannelBusy = true;
+                    this.pttBtn.disabled = true;
+                    this.pttBtn.innerText = "RECEIVING...";
+                    this.statusText.innerText = "● INCOMING SIGNAL";
+                    this.statusText.style.color = "#198754";
+                    this.ledRx.classList.add('active');
+                });
+
+                s.on('channel_free', () => {
+                    this.isChannelBusy = false;
+                    this.pttBtn.disabled = false;
+                    this.pttBtn.innerText = "HOLD TO TALK";
+                    this.statusText.innerText = "CHANNEL READY";
+                    this.statusText.style.color = "#6c757d";
+                    this.ledRx.classList.remove('active');
+                });
+
+                s.on('play_audio', ({ userId, data }) => this.playAudio(data));
+                s.on('update_video_frame', ({ userId, frame }) => this.updateRemoteVideo(userId, frame));
+                s.on('user_left', (userId) => this.removeRemoteVideo(userId));
+                s.on('room_destroyed', () => { alert('HOST TERMINATED CHANNEL.'); this.resetApp(); });
+                s.on('error_msg', (msg) => { alert(msg); this.resetApp(); });
+            },
+
+            checkAutoLogin: function() {
+                const savedRoom = localStorage.getItem('ny_room_id');
+                const savedToken = localStorage.getItem('ny_host_token');
+                if (savedRoom) this.socket.emit('join_room', { roomId: savedRoom, token: savedToken });
+            },
+            createRoom: function() { this.socket.emit('create_room'); },
+            joinRoom: function() {
+                const code = document.getElementById('room-code-input').value.trim();
+                if (code.length === 8) this.socket.emit('join_room', { roomId: code, token: localStorage.getItem('ny_host_token') });
+                else alert('INVALID CODE');
+            },
+            leaveRoom: function() { if(confirm('Disconnect?')) this.resetApp(); },
+            destroyRoom: function() { 
+                if(confirm('Terminate All?')) {
+                    this.socket.emit('destroy_room', { roomId: localStorage.getItem('ny_room_id'), token: localStorage.getItem('ny_host_token') });
+                }
+            },
             updateRemoteVideo: function(userId, frameData) {
                 let img = document.getElementById(`video-${userId}`);
                 if (!img) {
-                    this.createRemoteVideoCard(userId);
+                    const grid = document.getElementById('video-grid');
+                    const card = document.createElement('div');
+                    card.className = 'video-card';
+                    card.id = `card-${userId}`;
+                    card.innerHTML = `<img id="video-${userId}" class="video-content"><div class="video-label">REMOTE</div>`;
+                    grid.appendChild(card);
                     img = document.getElementById(`video-${userId}`);
                 }
                 img.src = frameData;
             },
-
-            createRemoteVideoCard: function(userId) {
-                const grid = document.getElementById('video-grid');
-                const card = document.createElement('div');
-                card.className = 'video-card';
-                card.id = `card-${userId}`;
-                const img = document.createElement('img');
-                img.id = `video-${userId}`;
-                img.className = 'video-content';
-                const label = document.createElement('div');
-                label.className = 'video-label';
-                label.innerText = `REMOTE ${userId.substring(0, 4)}`;
-                card.appendChild(img);
-                card.appendChild(label);
-                grid.appendChild(card);
-            },
-
             removeRemoteVideo: function(userId) {
                 const card = document.getElementById(`card-${userId}`);
-                if (card) card.remove();
+                if(card) card.remove();
             },
-
-            stopMedia: function() {
-  
-                if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-                    this.mediaRecorder.stop();
-                }
-                if (this.audioStream) {
-                    this.audioStream.getTracks().forEach(track => track.stop());
-                }
-                
-
-                if (this.videoStream) {
-                    this.videoStream.getTracks().forEach(track => track.stop());
-                }
-                if (this.videoInterval) clearInterval(this.videoInterval);
-            },
-
             saveSession: function(roomId, token) {
                 localStorage.setItem('ny_room_id', roomId);
                 if (token) localStorage.setItem('ny_host_token', token);
             },
-
             resetApp: function() {
-                this.stopMedia();
+                if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+                }
+                if (this.localStream) this.localStream.getTracks().forEach(track => track.stop());
+                clearInterval(this.videoInterval);
                 localStorage.removeItem('ny_room_id');
                 location.reload();
             },
-
             enterRoomUI: function(roomId, isHost) {
                 document.getElementById('lobby-view').style.display = 'none';
-                const roomView = document.getElementById('room-view');
-                roomView.style.display = 'flex';
-                roomView.classList.add('flex-column');
-
-                document.getElementById('room-id-display').innerText = `${roomId}`;
-                document.getElementById('connection-text').innerText = 'SIGNAL ESTABLISHED';
-                document.getElementById('status-indicator').classList.add('active');
-                document.getElementById('host-controls').style.display = isHost ? 'block' : 'none';
+                document.getElementById('room-view').style.display = 'flex';
+                document.getElementById('room-id-display').innerText = roomId;
+                this.userCountBadge.style.display = 'block';
+                if (isHost) document.getElementById('host-destroy-btn').style.display = 'block';
             }
         };
 
