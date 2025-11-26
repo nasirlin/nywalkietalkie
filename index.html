@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NY Walkie-Talkie</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    
+    <style>
+
+        body {
+            background-color: #e9ecef; /* 淺灰背景 */
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; /* 專業無襯線字體 */
+        }
+
+        /* 方形對講機外殼 */
+        .device-chassis {
+            width: 100%;
+            max-width: 480px;
+            background-color: #212529; /* 深黑色機身 */
+            border: 4px solid #000;
+            border-radius: 8px; /* 微圓角，保持方形感 */
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            position: relative;
+            padding: 25px;
+            color: #fff;
+            margin-top: 30px;
+        }
+
+        /* 頂部天線造型 */
+        .device-chassis::before {
+            content: '';
+            position: absolute;
+            top: -35px;
+            right: 40px;
+            width: 30px;
+            height: 35px;
+            background-color: #212529;
+            border: 4px solid #000;
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+        }
+
+        /* 設備螢幕區域 */
+        .device-screen {
+            background-color: #ffffff; /* 純白螢幕 */
+            color: #212529; /* 深色文字 */
+            border: 3px solid #ced4da;
+            border-radius: 4px;
+            padding: 30px;
+            min-height: 350px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 螢幕下方喇叭孔效果 */
+        .speaker-grille {
+            margin-top: 25px;
+            height: 30px;
+            /* 使用漸層模擬工業喇叭孔 */
+            background-image: radial-gradient(circle, #000 1.5px, transparent 1.5px);
+            background-size: 6px 6px;
+            opacity: 0.4;
+            border-top: 2px groove #444;
+            border-bottom: 2px groove #444;
+        }
+
+        h1 {
+            font-weight: 700;
+            letter-spacing: -1px;
+            text-transform: uppercase;
+            font-size: 1.5rem;
+            border-bottom: 2px solid #212529;
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+
+        /* Bootstrap 按鈕黑白化 */
+        .btn-primary {
+            background-color: #000;
+            border-color: #000;
+        }
+        .btn-primary:hover, .btn-primary:active {
+            background-color: #333;
+            border-color: #333;
+        }
+
+        .btn-outline-dark {
+            border-width: 2px;
+            font-weight: 600;
+        }
+
+        /* 危險按鈕黑白化 (粗框強調) */
+        .btn-danger-bw {
+            color: #000;
+            background-color: #fff;
+            border: 3px solid #000;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .btn-danger-bw:hover {
+            background-color: #000;
+            color: #fff;
+        }
+
+        .form-control {
+            border: 2px solid #ced4da;
+            text-align: center;
+            font-weight: 600;
+            font-size: 1.1rem;
+            letter-spacing: 2px;
+        }
+        .form-control:focus {
+            border-color: #000;
+            box-shadow: none;
+        }
+
+        /* 狀態列 */
+        .status-bar {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+        }
+
+        .status-indicator {
+            width: 10px; height: 10px;
+            background-color: #dc3545; /* Bootstrap danger red for inactive */
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        .status-indicator.active {
+            background-color: #198754; /* Bootstrap success green for active */
+        }
+
+        /* 視訊卡片 */
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .video-card {
+            background: #000;
+            border: 2px solid #212529;
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+            aspect-ratio: 4/3;
+        }
+
+        .video-content {
+            width: 100%; height: 100%; object-fit: cover;
+            filter: grayscale(80%); /* 稍微降低飽和度配合黑白主題 */
+        }
+
+        .video-label {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        footer {
+            margin-top: auto;
+            padding: 20px;
+            color: #6c757d;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="device-chassis">
+        <div class="device-screen text-center">
+            <h1>NY Walkie-Talkie</h1>
+
+            <div id="lobby-view">
+                <p class="text-muted mb-4">Enter 8-digit frequency code to connect.</p>
+                
+                <div class="mb-4 d-flex justify-content-center">
+                    <input type="text" id="room-code-input" class="form-control w-75" placeholder="12345678" maxlength="8">
+                </div>
+
+                <div class="d-grid gap-2 col-10 mx-auto">
+                    <button class="btn btn-primary btn-lg" onclick="App.joinRoom()">JOIN CHANNEL</button>
+                    <button class="btn btn-outline-dark" onclick="App.createRoom()">CREATE NEW CHANNEL</button>
+                </div>
+            </div>
+
+            <div id="room-view" style="display: none;">
+                <div class="status-bar">
+                    <span class="status-indicator" id="status-indicator"></span>
+                    <span id="connection-text">Connecting...</span>
+                </div>
+                <div class="fw-bold mb-3" style="font-family: monospace; font-size: 1.2rem;">
+                    CHANNEL ID: <span id="room-id-display">--</span>
+                </div>
+
+                <div class="video-grid" id="video-grid">
+                    <div class="video-card">
+                        <video id="local-video" class="video-content" autoplay muted playsinline></video>
+                        <div class="video-label">LOCAL (YOU)</div>
+                    </div>
+                    </div>
+
+                <div class="mt-auto pt-4">
+                    <button class="btn btn-outline-dark w-100" onclick="App.leaveRoom()">DISCONNECT</button>
+                </div>
+
+                <div id="host-controls" class="mt-4 pt-3 border-top border-2">
+                    <p class="fw-bold small text-uppercase mb-2">Admin Controls</p>
+                    <button class="btn btn-danger-bw w-100 py-2" onclick="App.destroyRoom()">TERMINATE ALL SIGNALS</button>
+                </div>
+            </div>
+        </div> <div class="speaker-grille"></div>
+
+    </div> <footer>
+        Copyright 2025 Nasir
+    </footer>
+
+    <canvas id="snapshot-canvas" width="320" height="240" style="display: none;"></canvas>
+
+    <script>
+        // ================= 配置區 (JavaScript 邏輯保持不變) =================
+        const CONFIG = {
+            SERVER_URL: "https://nywalkietalkie.onrender.com",
+            VIDEO_FPS: 5, 
+        };
+        // ==========================================================
+
+        const App = {
+            socket: null,
+            mediaRecorder: null,
+            localStream: null,
+            videoInterval: null,
+            canvas: document.getElementById('snapshot-canvas'),
+            ctx: document.getElementById('snapshot-canvas').getContext('2d'),
+            
+            init: function() {
+                this.socket = io(CONFIG.SERVER_URL);
+                this.bindSocketEvents();
+                this.checkAutoLogin();
+            },
+
+            bindSocketEvents: function() {
+                const s = this.socket;
+                s.on('connect', () => console.log('Connected to server'));
+                s.on('room_created', ({ roomId, hostToken }) => {
+                    this.saveSession(roomId, hostToken);
+                    this.enterRoomUI(roomId, true);
+                    this.startMedia();
+                });
+                s.on('joined_success', ({ roomId, isHost }) => {
+                    this.saveSession(roomId, null);
+                    this.enterRoomUI(roomId, isHost);
+                    this.startMedia();
+                });
+                s.on('play_audio', ({ userId, data }) => this.playAudio(data));
+                s.on('update_video_frame', ({ userId, frame }) => this.updateRemoteVideo(userId, frame));
+                s.on('user_left', (userId) => this.removeRemoteVideo(userId));
+                s.on('room_destroyed', () => {
+                    alert('CHANNEL TERMINATED BY HOST.');
+                    this.resetApp();
+                });
+                s.on('error_msg', (msg) => {
+                    alert('ERROR: ' + msg);
+                    this.resetApp();
+                });
+            },
+
+            checkAutoLogin: function() {
+                const savedRoom = localStorage.getItem('ny_room_id');
+                const savedToken = localStorage.getItem('ny_host_token');
+                if (savedRoom) {
+                    console.log('Restoring session...');
+                    this.socket.emit('join_room', { roomId: savedRoom, token: savedToken });
+                }
+            },
+
+            createRoom: function() {
+                this.socket.emit('create_room');
+            },
+
+            joinRoom: function() {
+                const code = document.getElementById('room-code-input').value.trim();
+                if (code.length !== 8 || isNaN(code)) {
+                    alert('INVALID CODE. Enter 8 digits.');
+                    return;
+                }
+                const savedToken = localStorage.getItem('ny_host_token');
+                this.socket.emit('join_room', { roomId: code, token: savedToken });
+            },
+
+            leaveRoom: function() {
+                if(confirm('Confirm disconnect?')) {
+                    this.resetApp();
+                }
+            },
+
+            destroyRoom: function() {
+                if(confirm('WARNING: This will cut all connections. Proceed?')) {
+                    const roomId = localStorage.getItem('ny_room_id');
+                    const token = localStorage.getItem('ny_host_token');
+                    this.socket.emit('destroy_room', { roomId, token });
+                }
+            },
+
+            startMedia: async function() {
+                try {
+                    this.localStream = await navigator.mediaDevices.getUserMedia({ 
+                        audio: true, 
+                        video: { width: 320, height: 240, facingMode: "user" } 
+                    });
+                    const localVideo = document.getElementById('local-video');
+                    localVideo.srcObject = this.localStream;
+
+                    this.mediaRecorder = new MediaRecorder(this.localStream);
+                    this.mediaRecorder.ondataavailable = (e) => {
+                        if (e.data.size > 0 && this.socket.connected) {
+                            this.socket.emit('voice_data', { 
+                                roomId: localStorage.getItem('ny_room_id'), 
+                                data: e.data 
+                            });
+                        }
+                    };
+                    this.mediaRecorder.start(100);
+                    this.startVideoBroadcasting(localVideo);
+                } catch (err) {
+                    console.error("Media Access Error:", err);
+                    alert("Hardware Access Denied (Mic/Cam).");
+                    this.resetApp();
+                }
+            },
+
+            startVideoBroadcasting: function(videoElement) {
+                if (this.videoInterval) clearInterval(this.videoInterval);
+                const intervalMs = 1000 / CONFIG.VIDEO_FPS;
+                this.videoInterval = setInterval(() => {
+                    if (!this.socket.connected || !this.localStream) return;
+                    this.ctx.drawImage(videoElement, 0, 0, this.canvas.width, this.canvas.height);
+                    const frame = this.canvas.toDataURL('image/jpeg', 0.5);
+                    this.socket.emit('video_frame', { 
+                        roomId: localStorage.getItem('ny_room_id'), 
+                        frame: frame 
+                    });
+                }, intervalMs);
+            },
+
+            playAudio: async function(blobData) {
+                try {
+                    const audioBlob = new Blob([blobData]);
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    const audio = new Audio(audioUrl);
+                    audio.volume = 1.0;
+                    await audio.play();
+                } catch (e) {}
+            },
+
+            updateRemoteVideo: function(userId, frameData) {
+                let img = document.getElementById(`video-${userId}`);
+                if (!img) {
+                    this.createRemoteVideoCard(userId);
+                    img = document.getElementById(`video-${userId}`);
+                }
+                img.src = frameData;
+            },
+
+            createRemoteVideoCard: function(userId) {
+                const grid = document.getElementById('video-grid');
+                const card = document.createElement('div');
+                card.className = 'video-card';
+                card.id = `card-${userId}`;
+                const img = document.createElement('img');
+                img.id = `video-${userId}`;
+                img.className = 'video-content';
+                const label = document.createElement('div');
+                label.className = 'video-label';
+                label.innerText = `REMOTE ${userId.substring(0, 4)}`;
+                card.appendChild(img);
+                card.appendChild(label);
+                grid.appendChild(card);
+            },
+
+            removeRemoteVideo: function(userId) {
+                const card = document.getElementById(`card-${userId}`);
+                if (card) card.remove();
+            },
+
+            stopMedia: function() {
+                if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') this.mediaRecorder.stop();
+                if (this.localStream) this.localStream.getTracks().forEach(track => track.stop());
+                if (this.videoInterval) clearInterval(this.videoInterval);
+            },
+
+            saveSession: function(roomId, token) {
+                localStorage.setItem('ny_room_id', roomId);
+                if (token) localStorage.setItem('ny_host_token', token);
+            },
+
+            resetApp: function() {
+                this.stopMedia();
+                localStorage.removeItem('ny_room_id');
+                location.reload();
+            },
+
+            enterRoomUI: function(roomId, isHost) {
+                document.getElementById('lobby-view').style.display = 'none';
+                const roomView = document.getElementById('room-view');
+                roomView.style.display = 'flex';
+                roomView.classList.add('flex-column'); // Bootstrap class to fix layout
+
+                document.getElementById('room-id-display').innerText = `${roomId}`;
+                document.getElementById('connection-text').innerText = 'SIGNAL ESTABLISHED';
+                document.getElementById('status-indicator').classList.add('active');
+                document.getElementById('host-controls').style.display = isHost ? 'block' : 'none';
+            }
+        };
+
+        window.onload = () => App.init();
+    </script>
+</body>
+</html>
