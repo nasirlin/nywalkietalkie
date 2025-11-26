@@ -18,7 +18,6 @@
             user-select: none; -webkit-user-select: none;
             touch-action: manipulation;
         }
-
         .device-chassis {
             width: 100%; max-width: 420px;
             background-color: #212529;
@@ -29,7 +28,6 @@
             color: #fff;
             position: relative;
         }
-
         .device-chassis::before {
             content: ''; position: absolute;
             top: -35px; right: 30px; width: 30px; height: 40px;
@@ -37,15 +35,15 @@
             border-radius: 5px 5px 0 0; z-index: -1;
         }
 
+
         .device-screen {
             background-color: #f8f9fa; color: #212529;
             border: 3px solid #495057; border-radius: 6px;
-            padding: 15px; min-height: 520px;
+            padding: 15px; min-height: 550px; 
             display: flex; flex-direction: column;
             box-shadow: inset 0 3px 6px rgba(0,0,0,0.2);
             position: relative;
         }
-
         .top-bar {
             display: flex; justify-content: space-between; align-items: center;
             border-bottom: 2px solid #dee2e6; padding-bottom: 10px; margin-bottom: 15px;
@@ -58,33 +56,43 @@
 
         .led-container {
             display: flex; align-items: center; justify-content: center; gap: 15px;
-            margin-bottom: 15px; background: #e9ecef; padding: 8px; border-radius: 30px;
+            margin-bottom: 10px; background: #e9ecef; padding: 5px; border-radius: 30px;
             border: 1px solid #ced4da;
         }
         .led {
-            width: 15px; height: 15px; border-radius: 50%;
-            background-color: #adb5bd;
-            border: 1px solid #6c757d;
-            transition: all 0.2s;
+            width: 12px; height: 12px; border-radius: 50%;
+            background-color: #adb5bd; border: 1px solid #6c757d; transition: all 0.2s;
         }
         .led-label { font-size: 0.7rem; font-weight: bold; color: #6c757d; margin-left: 5px; }
-        
-        .led.red.active {
-            background-color: #dc3545;
-            box-shadow: 0 0 10px #dc3545;
-            animation: blink 0.5s infinite;
-        }
-        .led.green.active {
-            background-color: #198754;
-            box-shadow: 0 0 10px #198754;
-            animation: blink 0.5s infinite;
-        }
-
+        .led.red.active { background-color: #dc3545; box-shadow: 0 0 8px #dc3545; animation: blink 0.5s infinite; }
+        .led.green.active { background-color: #198754; box-shadow: 0 0 8px #198754; animation: blink 0.5s infinite; }
         @keyframes blink { 50% { opacity: 0.3; } }
+
+        .video-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 5px; }
+        .video-card { background: #000; aspect-ratio: 4/3; position: relative; border: 1px solid #333; overflow: hidden; }
+        .video-content { width: 100%; height: 100%; object-fit: cover; filter: grayscale(100%); }
+        .video-placeholder {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center;
+            color: #6c757d; font-size: 0.7rem; background: #212529;
+            z-index: 1;
+        }
+        .video-label {
+            position: absolute; bottom: 0; left: 0; background: rgba(0,0,0,0.8);
+            color: #fff; font-size: 0.6rem; padding: 2px 4px; z-index: 2;
+        }
+        .camera-controls {
+            display: flex; justify-content: center; gap: 10px; margin-bottom: 15px;
+        }
+        .cam-btn {
+            font-size: 0.75rem; padding: 4px 10px; border-radius: 20px;
+            border: 1px solid #6c757d; background: #fff; font-weight: bold;
+        }
+        .cam-btn.active { background: #198754; color: white; border-color: #198754; }
 
         .ptt-container { margin-top: auto; padding-top: 10px; }
         #ptt-button {
-            width: 100%; height: 85px;
+            width: 100%; height: 80px;
             background: linear-gradient(180deg, #e9ecef 0%, #ced4da 100%);
             border: 3px solid #495057; border-radius: 8px;
             color: #212529; font-size: 1.5rem; font-weight: 900;
@@ -101,15 +109,6 @@
             background: #e9ecef; color: #adb5bd; border-color: #dee2e6;
             cursor: not-allowed; box-shadow: none; transform: none;
         }
-
-        .video-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
-        .video-card { background: #000; aspect-ratio: 4/3; position: relative; border: 1px solid #333; }
-        .video-content { width: 100%; height: 100%; object-fit: cover; filter: grayscale(100%); }
-        .video-label {
-            position: absolute; bottom: 0; left: 0; background: rgba(0,0,0,0.8);
-            color: #fff; font-size: 0.6rem; padding: 2px 4px;
-        }
-
         .speaker-holes {
             margin-top: 20px; height: 20px;
             background-image: radial-gradient(#333 20%, transparent 20%);
@@ -162,9 +161,15 @@
 
                 <div class="video-grid" id="video-grid">
                     <div class="video-card">
-                        <video id="local-video" class="video-content" autoplay muted playsinline></video>
+                        <div id="local-video-placeholder" class="video-placeholder">CAMERA OFF</div>
+                        <video id="local-video" class="video-content" style="display:none;" autoplay muted playsinline></video>
                         <div class="video-label">YOU</div>
                     </div>
+                </div>
+
+                <div class="camera-controls">
+                    <button id="btn-toggle-cam" class="btn cam-btn" onclick="App.toggleCamera()">📷 CAM ON</button>
+                    <button id="btn-switch-cam" class="btn cam-btn" onclick="App.switchCamera()" style="display:none;">🔄 SWITCH</button>
                 </div>
 
                 <div id="status-text" class="text-center mb-2 fw-bold text-muted" style="font-size: 0.8rem;">
@@ -193,20 +198,27 @@
     <script>
         const CONFIG = {
             SERVER_URL: "https://nywalkietalkie.onrender.com",
-            VIDEO_FPS: 5,
+            VIDEO_FPS: 5, 
         };
 
         const App = {
             socket: null,
+            audioStream: null, 
             mediaRecorder: null,
-            localStream: null,
+
+            videoStream: null,
             videoInterval: null,
+            currentFacingMode: 'environment', 
+            isCameraOn: false,
             isTalking: false,
             isChannelBusy: false,
-            
             canvas: document.getElementById('snapshot-canvas'),
             ctx: document.getElementById('snapshot-canvas').getContext('2d'),
             pttBtn: document.getElementById('ptt-button'),
+            localVideo: document.getElementById('local-video'),
+            videoPlaceholder: document.getElementById('local-video-placeholder'),
+            btnToggleCam: document.getElementById('btn-toggle-cam'),
+            btnSwitchCam: document.getElementById('btn-switch-cam'),
             statusText: document.getElementById('status-text'),
             ledTx: document.getElementById('led-tx'),
             ledRx: document.getElementById('led-rx'),
@@ -219,6 +231,102 @@
                 this.bindPTTLogic();
             },
 
+            initAudio: async function() {
+                try {
+                    // 只請求音訊
+                    this.audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    
+                    // 初始化錄音機
+                    this.mediaRecorder = new MediaRecorder(this.audioStream);
+                    this.mediaRecorder.ondataavailable = (e) => {
+                        if (this.isTalking && e.data.size > 0 && this.socket.connected) {
+                            this.socket.emit('voice_data', { 
+                                roomId: localStorage.getItem('ny_room_id'), 
+                                data: e.data 
+                            });
+                        }
+                    };
+                    this.mediaRecorder.start(100);
+
+                    // 解鎖按鈕
+                    if(!this.isChannelBusy) this.pttBtn.disabled = false;
+
+                } catch (err) {
+                    console.error("Audio Error:", err);
+                    alert("請允許麥克風權限以使用對講機功能 (Microphone Access Required)");
+                }
+            },
+            toggleCamera: async function() {
+                if (!this.isCameraOn) {
+
+                    try {
+                        const constraints = {
+                            video: { 
+                                width: 320, height: 240, 
+                                facingMode: this.currentFacingMode 
+                            }
+                        };
+                        this.videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+                        
+                        this.localVideo.srcObject = this.videoStream;
+                        this.localVideo.style.display = 'block';
+                        this.videoPlaceholder.style.display = 'none';
+                        
+                        this.startVideoBroadcasting();
+                        this.isCameraOn = true;
+                        this.btnToggleCam.innerText = "📷 CAM OFF";
+                        this.btnToggleCam.classList.add('active');
+                        this.btnSwitchCam.style.display = 'inline-block'; 
+
+                    } catch (err) {
+                        console.error("Camera Error:", err);
+                        alert("無法開啟相機，請檢查權限或裝置。");
+                    }
+                } else {
+                    this.stopCamera();
+                }
+            },
+
+            stopCamera: function() {
+                if (this.videoStream) {
+                    this.videoStream.getTracks().forEach(track => track.stop());
+                    this.videoStream = null;
+                }
+                if (this.videoInterval) clearInterval(this.videoInterval);
+                
+                // UI 復原
+                this.localVideo.style.display = 'none';
+                this.videoPlaceholder.style.display = 'flex';
+                this.isCameraOn = false;
+                this.btnToggleCam.innerText = "📷 CAM ON";
+                this.btnToggleCam.classList.remove('active');
+                this.btnSwitchCam.style.display = 'none';
+            },
+
+            switchCamera: function() {
+                if (!this.isCameraOn) return;
+                
+                this.currentFacingMode = (this.currentFacingMode === 'environment') ? 'user' : 'environment';
+                
+                this.stopCamera(); 
+
+                setTimeout(() => {
+                    this.toggleCamera();
+                }, 200);
+            },
+
+            startVideoBroadcasting: function() {
+                if (this.videoInterval) clearInterval(this.videoInterval);
+                this.videoInterval = setInterval(() => {
+                    if (!this.socket.connected || !this.videoStream) return;
+                    this.ctx.drawImage(this.localVideo, 0, 0, this.canvas.width, this.canvas.height);
+                    const frame = this.canvas.toDataURL('image/jpeg', 0.5);
+                    this.socket.emit('video_frame', { 
+                        roomId: localStorage.getItem('ny_room_id'), 
+                        frame: frame 
+                    });
+                }, 1000 / CONFIG.VIDEO_FPS);
+            },
             bindPTTLogic: function() {
                 const startTalk = (e) => {
                     if(e.cancelable) e.preventDefault();
@@ -250,89 +358,26 @@
 
                 this.pttBtn.addEventListener('mousedown', startTalk);
                 window.addEventListener('mouseup', stopTalk);
-
                 this.pttBtn.addEventListener('touchstart', startTalk, { passive: false });
                 this.pttBtn.addEventListener('touchend', stopTalk, { passive: false });
             },
 
-            startMedia: async function() {
-                try {
-                    this.localStream = await navigator.mediaDevices.getUserMedia({ 
-                        audio: true, 
-                        video: { width: 320, height: 240, facingMode: "user" } 
-                    });
-                    
-                    const localVideo = document.getElementById('local-video');
-                    localVideo.srcObject = this.localStream;
-
-                    this.mediaRecorder = new MediaRecorder(this.localStream);
-                    
-                    this.mediaRecorder.ondataavailable = (e) => {
-                        if (this.isTalking && e.data.size > 0 && this.socket.connected) {
-                            this.socket.emit('voice_data', { 
-                                roomId: localStorage.getItem('ny_room_id'), 
-                                data: e.data 
-                            });
-                        }
-                    };
-
-                    this.mediaRecorder.start(100); 
-
-                    if(!this.isChannelBusy) {
-                        this.pttBtn.disabled = false;
-                    }
-
-                    this.startVideoBroadcasting(localVideo);
-
-                } catch (err) {
-                    console.error("Device Error:", err);
-                    alert("Hardware Access Denied. Check permissions.");
-                    this.resetApp();
-                }
-            },
-
-            startVideoBroadcasting: function(videoElement) {
-                if (this.videoInterval) clearInterval(this.videoInterval);
-                this.videoInterval = setInterval(() => {
-                    if (!this.socket.connected || !this.localStream) return;
-                    this.ctx.drawImage(videoElement, 0, 0, this.canvas.width, this.canvas.height);
-                    const frame = this.canvas.toDataURL('image/jpeg', 0.5);
-                    this.socket.emit('video_frame', { 
-                        roomId: localStorage.getItem('ny_room_id'), 
-                        frame: frame 
-                    });
-                }, 1000 / CONFIG.VIDEO_FPS);
-            },
-
-            playAudio: async function(blobData) {
-                try {
-                    const audioBlob = new Blob([blobData]);
-                    const audioUrl = URL.createObjectURL(audioBlob);
-                    const audio = new Audio(audioUrl);
-                    audio.volume = 1.0;
-                    await audio.play();
-                } catch (e) {}
-            },
 
             bindSocketEvents: function() {
                 const s = this.socket;
-                
                 s.on('connect', () => console.log('Connected'));
                 s.on('room_created', ({ roomId, hostToken }) => {
                     this.saveSession(roomId, hostToken);
                     this.enterRoomUI(roomId, true);
-                    this.startMedia();
+                    this.initAudio();
                 });
                 s.on('joined_success', ({ roomId, isHost }) => {
                     this.saveSession(roomId, null);
                     this.enterRoomUI(roomId, isHost);
-                    this.startMedia();
+                    this.initAudio(); 
                 });
 
-                s.on('update_user_count', (count) => {
-                    this.userCountBadge.innerText = `ONLINE: ${count}`;
-                });
-
+                s.on('update_user_count', (count) => this.userCountBadge.innerText = `ONLINE: ${count}`);
                 s.on('channel_busy', (speakerId) => {
                     this.isChannelBusy = true;
                     this.pttBtn.disabled = true;
@@ -341,7 +386,6 @@
                     this.statusText.style.color = "#198754";
                     this.ledRx.classList.add('active');
                 });
-
                 s.on('channel_free', () => {
                     this.isChannelBusy = false;
                     this.pttBtn.disabled = false;
@@ -358,6 +402,15 @@
                 s.on('error_msg', (msg) => { alert(msg); this.resetApp(); });
             },
 
+            playAudio: async function(blobData) {
+                try {
+                    const audioBlob = new Blob([blobData]);
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    const audio = new Audio(audioUrl);
+                    audio.volume = 1.0;
+                    await audio.play();
+                } catch (e) {}
+            },
             checkAutoLogin: function() {
                 const savedRoom = localStorage.getItem('ny_room_id');
                 const savedToken = localStorage.getItem('ny_host_token');
@@ -397,10 +450,11 @@
                 if (token) localStorage.setItem('ny_host_token', token);
             },
             resetApp: function() {
-                if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-                }
-                if (this.localStream) this.localStream.getTracks().forEach(track => track.stop());
-                clearInterval(this.videoInterval);
+
+                if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') { }
+                if (this.audioStream) this.audioStream.getTracks().forEach(track => track.stop());
+                this.stopCamera();
+                
                 localStorage.removeItem('ny_room_id');
                 location.reload();
             },
