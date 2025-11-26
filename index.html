@@ -2,31 +2,35 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>NY Walkie-Talkie</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#212529">
+    <link rel="apple-touch-icon" href="icon/icon-192.png">
+    
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     
     <style>
-
         body {
-            background-color: #e9ecef; /* 淺灰背景 */
+            background-color: #e9ecef;
             display: flex;
             flex-direction: column;
             min-height: 100vh;
             align-items: center;
             justify-content: center;
             padding: 20px;
-            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; /* 專業無襯線字體 */
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            overscroll-behavior-y: contain; 
         }
 
-        /* 方形對講機外殼 */
         .device-chassis {
             width: 100%;
             max-width: 480px;
-            background-color: #212529; /* 深黑色機身 */
+            background-color: #212529;
             border: 4px solid #000;
-            border-radius: 8px; /* 微圓角，保持方形感 */
+            border-radius: 8px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.3);
             position: relative;
             padding: 25px;
@@ -34,7 +38,6 @@
             margin-top: 30px;
         }
 
-        /* 頂部天線造型 */
         .device-chassis::before {
             content: '';
             position: absolute;
@@ -48,10 +51,9 @@
             border-radius: 4px 4px 0 0;
         }
 
-        /* 設備螢幕區域 */
         .device-screen {
-            background-color: #ffffff; /* 純白螢幕 */
-            color: #212529; /* 深色文字 */
+            background-color: #ffffff;
+            color: #212529;
             border: 3px solid #ced4da;
             border-radius: 4px;
             padding: 30px;
@@ -60,11 +62,9 @@
             flex-direction: column;
         }
 
-        /* 螢幕下方喇叭孔效果 */
         .speaker-grille {
             margin-top: 25px;
             height: 30px;
-            /* 使用漸層模擬工業喇叭孔 */
             background-image: radial-gradient(circle, #000 1.5px, transparent 1.5px);
             background-size: 6px 6px;
             opacity: 0.4;
@@ -83,7 +83,6 @@
             text-align: center;
         }
 
-        /* Bootstrap 按鈕黑白化 */
         .btn-primary {
             background-color: #000;
             border-color: #000;
@@ -97,8 +96,18 @@
             border-width: 2px;
             font-weight: 600;
         }
+        
+        .btn-dark-solid {
+            background-color: #000;
+            color: #fff;
+            border: 2px solid #000;
+            font-weight: 600;
+        }
+        .btn-dark-solid:hover {
+            background-color: #333;
+            color: #fff;
+        }
 
-        /* 危險按鈕黑白化 (粗框強調) */
         .btn-danger-bw {
             color: #000;
             background-color: #fff;
@@ -123,7 +132,6 @@
             box-shadow: none;
         }
 
-        /* 狀態列 */
         .status-bar {
             font-size: 0.9rem;
             font-weight: 600;
@@ -138,20 +146,19 @@
 
         .status-indicator {
             width: 10px; height: 10px;
-            background-color: #dc3545; /* Bootstrap danger red for inactive */
+            background-color: #dc3545;
             border-radius: 50%;
             margin-right: 10px;
         }
         .status-indicator.active {
-            background-color: #198754; /* Bootstrap success green for active */
+            background-color: #198754;
         }
 
-        /* 視訊卡片 */
         .video-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
             gap: 15px;
-            margin-top: 20px;
+            margin-top: 10px;
         }
 
         .video-card {
@@ -165,7 +172,9 @@
 
         .video-content {
             width: 100%; height: 100%; object-fit: cover;
-            filter: grayscale(80%); /* 稍微降低飽和度配合黑白主題 */
+            filter: grayscale(80%);
+            display: block;
+            background-color: #000;
         }
 
         .video-label {
@@ -212,8 +221,14 @@
                     <span class="status-indicator" id="status-indicator"></span>
                     <span id="connection-text">Connecting...</span>
                 </div>
-                <div class="fw-bold mb-3" style="font-family: monospace; font-size: 1.2rem;">
-                    CHANNEL ID: <span id="room-id-display">--</span>
+                
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="fw-bold" style="font-family: monospace; font-size: 1.2rem;">
+                        CH: <span id="room-id-display">--</span>
+                    </div>
+                    <button id="btn-video-toggle" class="btn btn-outline-dark btn-sm" onclick="App.toggleVideo()">
+                        START CAMERA
+                    </button>
                 </div>
 
                 <div class="video-grid" id="video-grid">
@@ -221,7 +236,7 @@
                         <video id="local-video" class="video-content" autoplay muted playsinline></video>
                         <div class="video-label">LOCAL (YOU)</div>
                     </div>
-                    </div>
+                </div>
 
                 <div class="mt-auto pt-4">
                     <button class="btn btn-outline-dark w-100" onclick="App.leaveRoom()">DISCONNECT</button>
@@ -241,18 +256,25 @@
     <canvas id="snapshot-canvas" width="320" height="240" style="display: none;"></canvas>
 
     <script>
-        // ================= 配置區 (JavaScript 邏輯保持不變) =================
+       
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js')
+                .then(() => console.log('Service Worker Registered'))
+                .catch((err) => console.log('Service Worker Failed', err));
+        }
+
         const CONFIG = {
             SERVER_URL: "https://nywalkietalkie.onrender.com",
             VIDEO_FPS: 5, 
         };
-        // ==========================================================
 
         const App = {
             socket: null,
             mediaRecorder: null,
-            localStream: null,
+            audioStream: null, 
+            videoStream: null, 
             videoInterval: null,
+            isVideoActive: false, 
             canvas: document.getElementById('snapshot-canvas'),
             ctx: document.getElementById('snapshot-canvas').getContext('2d'),
             
@@ -268,12 +290,12 @@
                 s.on('room_created', ({ roomId, hostToken }) => {
                     this.saveSession(roomId, hostToken);
                     this.enterRoomUI(roomId, true);
-                    this.startMedia();
+                    this.startAudio(); 
                 });
                 s.on('joined_success', ({ roomId, isHost }) => {
                     this.saveSession(roomId, null);
                     this.enterRoomUI(roomId, isHost);
-                    this.startMedia();
+                    this.startAudio(); 
                 });
                 s.on('play_audio', ({ userId, data }) => this.playAudio(data));
                 s.on('update_video_frame', ({ userId, frame }) => this.updateRemoteVideo(userId, frame));
@@ -325,16 +347,12 @@
                 }
             },
 
-            startMedia: async function() {
+           
+            startAudio: async function() {
                 try {
-                    this.localStream = await navigator.mediaDevices.getUserMedia({ 
-                        audio: true, 
-                        video: { width: 320, height: 240, facingMode: "user" } 
-                    });
-                    const localVideo = document.getElementById('local-video');
-                    localVideo.srcObject = this.localStream;
-
-                    this.mediaRecorder = new MediaRecorder(this.localStream);
+                    this.audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    
+                    this.mediaRecorder = new MediaRecorder(this.audioStream);
                     this.mediaRecorder.ondataavailable = (e) => {
                         if (e.data.size > 0 && this.socket.connected) {
                             this.socket.emit('voice_data', { 
@@ -344,19 +362,64 @@
                         }
                     };
                     this.mediaRecorder.start(100);
-                    this.startVideoBroadcasting(localVideo);
+                    console.log("Audio started");
                 } catch (err) {
-                    console.error("Media Access Error:", err);
-                    alert("Hardware Access Denied (Mic/Cam).");
-                    this.resetApp();
+                    console.error("Audio Access Error:", err);
+                    alert("Microphone Access Denied. You can hear others but cannot speak.");
+                }
+            },
+
+            toggleVideo: async function() {
+                const btn = document.getElementById('btn-video-toggle');
+                
+                if (!this.isVideoActive) {
+
+                    try {
+                        this.videoStream = await navigator.mediaDevices.getUserMedia({ 
+                            video: { width: 320, height: 240, facingMode: "user" } 
+                        });
+                        const localVideo = document.getElementById('local-video');
+                        localVideo.srcObject = this.videoStream;
+                        
+                        this.startVideoBroadcasting(localVideo);
+                        
+      
+                        this.isVideoActive = true;
+                        btn.innerText = "STOP CAMERA";
+                        btn.classList.remove('btn-outline-dark');
+                        btn.classList.add('btn-dark-solid');
+                        
+                    } catch (err) {
+                        console.error("Camera Error:", err);
+                        alert("Camera Access Denied or Error.");
+                    }
+                } else {
+
+                    if (this.videoStream) {
+                        this.videoStream.getTracks().forEach(track => track.stop());
+                        this.videoStream = null;
+                    }
+                    if (this.videoInterval) {
+                        clearInterval(this.videoInterval);
+                        this.videoInterval = null;
+                    }
+                    document.getElementById('local-video').srcObject = null;
+                    
+
+                    this.isVideoActive = false;
+                    btn.innerText = "START CAMERA";
+                    btn.classList.remove('btn-dark-solid');
+                    btn.classList.add('btn-outline-dark');
                 }
             },
 
             startVideoBroadcasting: function(videoElement) {
                 if (this.videoInterval) clearInterval(this.videoInterval);
                 const intervalMs = 1000 / CONFIG.VIDEO_FPS;
+                
                 this.videoInterval = setInterval(() => {
-                    if (!this.socket.connected || !this.localStream) return;
+                    if (!this.socket.connected || !this.videoStream) return;
+                    
                     this.ctx.drawImage(videoElement, 0, 0, this.canvas.width, this.canvas.height);
                     const frame = this.canvas.toDataURL('image/jpeg', 0.5);
                     this.socket.emit('video_frame', { 
@@ -365,6 +428,7 @@
                     });
                 }, intervalMs);
             },
+
 
             playAudio: async function(blobData) {
                 try {
@@ -407,8 +471,18 @@
             },
 
             stopMedia: function() {
-                if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') this.mediaRecorder.stop();
-                if (this.localStream) this.localStream.getTracks().forEach(track => track.stop());
+  
+                if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+                    this.mediaRecorder.stop();
+                }
+                if (this.audioStream) {
+                    this.audioStream.getTracks().forEach(track => track.stop());
+                }
+                
+
+                if (this.videoStream) {
+                    this.videoStream.getTracks().forEach(track => track.stop());
+                }
                 if (this.videoInterval) clearInterval(this.videoInterval);
             },
 
@@ -427,7 +501,7 @@
                 document.getElementById('lobby-view').style.display = 'none';
                 const roomView = document.getElementById('room-view');
                 roomView.style.display = 'flex';
-                roomView.classList.add('flex-column'); // Bootstrap class to fix layout
+                roomView.classList.add('flex-column');
 
                 document.getElementById('room-id-display').innerText = `${roomId}`;
                 document.getElementById('connection-text').innerText = 'SIGNAL ESTABLISHED';
