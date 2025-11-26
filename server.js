@@ -4,7 +4,6 @@ const { Server } = require('socket.io');
 const Redis = require('ioredis');
 const cors = require('cors');
 
-
 const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
 const app = express();
 
@@ -15,26 +14,19 @@ const io = new Server(server, {
     cors: { origin: "*", methods: ["GET", "POST"] }
 });
 
-
 const roomSpeaker = {};
 
 io.on('connection', (socket) => {
     
-
     socket.on('join_room', async ({ roomId, token }) => {
         const storedHostToken = await redis.get(`room:${roomId}`);
         const isHost = (token && token === storedHostToken);
-        
-
         const usersInRoom = Array.from(io.sockets.adapter.rooms.get(roomId) || []);
         
         socket.join(roomId);
-
         socket.emit('joined_success', { roomId, isHost, allUsers: usersInRoom });
-        
 
         socket.to(roomId).emit('user_joined', socket.id);
-
 
         if (roomSpeaker[roomId]) {
             socket.emit('channel_busy', roomSpeaker[roomId]);
@@ -50,7 +42,6 @@ io.on('connection', (socket) => {
         socket.emit('room_created', { roomId, hostToken });
     });
 
-
     socket.on('sending_signal', (payload) => {
         io.to(payload.userToSignal).emit('user_joined_signal', { 
             signal: payload.signal, 
@@ -64,7 +55,6 @@ io.on('connection', (socket) => {
             id: socket.id 
         });
     });
-
 
     socket.on('start_talking', (roomId) => {
         if (!roomSpeaker[roomId]) {
@@ -80,7 +70,6 @@ io.on('connection', (socket) => {
         }
     });
     
-
     socket.on('destroy_room', async ({ roomId, token }) => {
         const storedHostToken = await redis.get(`room:${roomId}`);
         if (token === storedHostToken) {
@@ -99,19 +88,15 @@ io.on('connection', (socket) => {
                 socket.to(roomId).emit('channel_free');
             }
             socket.to(roomId).emit('user_left', socket.id);
-
             setTimeout(() => updateUserCount(roomId), 100);
         });
     });
-    
-    function updateUserCount(roomId) {
 
+    function updateUserCount(roomId) {
         const room = io.sockets.adapter.rooms.get(roomId);
-        if(room) {
-            io.to(roomId).emit('update_user_count', room.size);
-        }
+        if(room) io.to(roomId).emit('update_user_count', room.size);
     }
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Signaling Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

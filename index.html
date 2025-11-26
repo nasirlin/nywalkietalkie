@@ -6,6 +6,7 @@
     <title>NY Walkie-Talkie</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    
     <style>
         body {
             background-color: #e9ecef; display: flex; flex-direction: column;
@@ -27,7 +28,7 @@
         .device-screen {
             background-color: #f8f9fa; color: #212529;
             border: 3px solid #495057; border-radius: 6px; padding: 15px;
-            min-height: 580px; display: flex; flex-direction: column; position: relative;
+            min-height: 600px; display: flex; flex-direction: column; position: relative;
         }
         .top-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #dee2e6; padding-bottom: 10px; margin-bottom: 15px; }
         h1 { font-size: 1.2rem; font-weight: 800; margin: 0; }
@@ -58,6 +59,7 @@
         .btn-primary { background: #000; border: #000; }
         
         #error-log { font-size: 0.7rem; color: #dc3545; text-align: center; margin-top: 5px; white-space: pre-wrap; }
+        .connection-badge { font-size: 0.65rem; background: #ffc107; color: #000; padding: 2px 6px; border-radius: 4px; margin-left: 5px; display: none; }
     </style>
 </head>
 <body>
@@ -84,7 +86,10 @@
                 <div style="display:flex; align-items:center;"><div id="led-tx" class="led red"></div><span style="font-size:0.7rem; margin-left:5px; font-weight:bold;">TX</span></div>
                 <div style="display:flex; align-items:center;"><div id="led-rx" class="led green"></div><span style="font-size:0.7rem; margin-left:5px; font-weight:bold;">RX</span></div>
             </div>
-            <div class="text-center mb-2" style="font-family: monospace; font-size: 0.9rem;">FREQ: <strong id="room-id-display">--</strong></div>
+            <div class="text-center mb-2" style="font-family: monospace; font-size: 0.9rem;">
+                FREQ: <strong id="room-id-display">--</strong>
+                <span id="p2p-status" class="connection-badge">Connecting...</span>
+            </div>
 
             <div class="video-grid" id="video-grid">
                 <div class="video-card">
@@ -128,13 +133,16 @@
 
     const App = {
         socket: null,
-        localStream: null,
-        peers: {},
+        localStream: null, 
+        videoStream: null, 
+        peers: {}, 
         
         isTalking: false,
         isChannelBusy: false,
         isCameraOn: false,
         currentFacingMode: 'environment',
+
+
         pttBtn: document.getElementById('ptt-button'),
         localVideo: document.getElementById('local-video'),
         videoPlaceholder: document.getElementById('local-video-placeholder'),
@@ -143,14 +151,13 @@
         ledTx: document.getElementById('led-tx'),
         ledRx: document.getElementById('led-rx'),
         errorLog: document.getElementById('error-log'),
-        
-        init: function() {
+        p2pStatus: document.getElementById('p2p-status'),
 
+        init: function() {
             if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-                this.logError("警告：WebRTC 需要 HTTPS 連線。請使用 https://...");
-                alert("安全警告：請使用 HTTPS 開啟此網頁，否則麥克風無法啟動。");
+                this.logError("錯誤：必須使用 HTTPS 連線。");
+                alert("請使用 HTTPS，否則無法通話。");
             }
-            
             this.socket = io(CONFIG.SERVER_URL);
             this.bindSocketEvents();
             this.checkAutoLogin();
@@ -161,115 +168,112 @@
             console.error(msg);
             this.errorLog.innerText = msg;
         },
+
         attemptJoin: async function() {
             const code = document.getElementById('room-code-input').value.trim();
-            if (code.length !== 8) {
-                alert('請輸入 8 位數代碼');
-                return;
-            }
+            if (code.length !== 8) return alert('請輸入 8 位數代碼');
 
             try {
-                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                if (audioCtx.state === 'suspended') {
-                    await audioCtx.resume();
-                }
-                console.log("AudioContext resumed");
-            } catch (e) {
-                console.warn("AudioContext warning:", e);
-            }
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                const ctx = new AudioContext();
+                await ctx.resume();
 
-            try {
-                this.localStream = await navigator.mediaDevices.getUserMedia({ 
-                    audio: true,
-                    video: false 
-                });
-
-                console.log("Microphone access granted.");
+                this.localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
                 
                 this.localStream.getAudioTracks()[0].enabled = false;
-
 
                 this.socket.emit('join_room', { roomId: code, token: localStorage.getItem('ny_host_token') });
 
             } catch (err) {
-                let msg = "麥克風錯誤: " + err.name;
-                if (err.name === 'NotAllowedError') msg = "存取被拒：請到瀏覽器設定允許麥克風權限。";
-                if (err.name === 'NotFoundError') msg = "找不到麥克風裝置。";
-                if (err.name === 'NotReadableError') msg = "麥克風被其他程式佔用，請關閉其他通話軟體。";
-                
-                this.logError(msg);
+                let msg = "麥克風存取失敗: " + err.name;
+                if(err.name === 'NotAllowedError') msg = "被拒絕：請到設定允許麥克風權限。";
                 alert(msg);
+                this.logError(msg);
             }
         },
-
-        createPeer: function(userToSignal, callerID, stream) {
+        createPeerConnection: function(targetID) {
             const peer = new RTCPeerConnection(CONFIG.ICE_SERVERS);
             
-
-            stream.getTracks().forEach(track => peer.addTrack(track, stream));
-
-        
+            if (this.localStream) {
+                this.localStream.getTracks().forEach(track => peer.addTrack(track, this.localStream));
+            }
+            peer.addTransceiver('video', { direction: 'sendrecv' });
             peer.ontrack = (e) => {
-                console.log("Received remote track from", userToSignal);
-                this.handleRemoteStream(userToSignal, e.streams[0]);
+                console.log("Received track:", e.track.kind);
+                this.handleRemoteStream(targetID, e.streams[0], e.track);
             };
 
             peer.onicecandidate = (e) => {
                 if (e.candidate) {
                     this.socket.emit('sending_signal', {
-                        userToSignal: userToSignal,
-                        callerID: callerID,
+                        userToSignal: targetID,
+                        callerID: this.socket.id,
                         signal: { type: 'candidate', candidate: e.candidate }
                     });
                 }
             };
+            
+            peer.onconnectionstatechange = () => {
+                const state = peer.connectionState;
+                console.log(`P2P State with ${targetID}: ${state}`);
+                if (state === 'connected') {
+                    this.p2pStatus.innerText = "P2P Connected";
+                    this.p2pStatus.style.background = "#198754";
+                    this.p2pStatus.style.color = "#fff";
+                } else if (state === 'disconnected' || state === 'failed') {
+                    this.p2pStatus.innerText = "P2P Failed";
+                    this.p2pStatus.style.background = "#dc3545";
+                }
+            };
 
+            return peer;
+        },
+
+        initiateOffer: function(targetID) {
+            const peer = this.createPeerConnection(targetID);
+            this.peers[targetID] = peer;
 
             peer.createOffer().then(offer => {
                 peer.setLocalDescription(offer);
                 this.socket.emit('sending_signal', {
-                    userToSignal: userToSignal,
-                    callerID: callerID,
+                    userToSignal: targetID,
+                    callerID: this.socket.id,
                     signal: { type: 'sdp', sdp: offer }
                 });
             });
-
-            return peer;
         },
 
-        addPeer: function(incomingSignal, callerID, stream) {
-            const peer = new RTCPeerConnection(CONFIG.ICE_SERVERS);
-            
-            stream.getTracks().forEach(track => peer.addTrack(track, stream));
+        handleIncomingSignal: function(payload) {
+            const { signal, callerID } = payload;
+            let peer = this.peers[callerID];
 
-            peer.ontrack = (e) => {
-                console.log("Received remote track from", callerID);
-                this.handleRemoteStream(callerID, e.streams[0]);
-            };
+            if (!peer && signal.type === 'sdp' && signal.sdp.type === 'offer') {
+                peer = this.createPeerConnection(callerID);
+                this.peers[callerID] = peer;
+            }
 
-            peer.onicecandidate = (e) => {
-                if (e.candidate) {
-                    this.socket.emit('returning_signal', {
-                        signal: { type: 'candidate', candidate: e.candidate },
-                        callerID: callerID
-                    });
-                }
-            };
+            if (!peer) return; 
 
-            peer.setRemoteDescription(new RTCSessionDescription(incomingSignal.sdp)).then(() => {
-                peer.createAnswer().then(answer => {
-                    peer.setLocalDescription(answer);
-                    this.socket.emit('returning_signal', {
-                        signal: { type: 'sdp', sdp: answer },
-                        callerID: callerID
-                    });
+            if (signal.type === 'sdp') {
+                peer.setRemoteDescription(new RTCSessionDescription(signal.sdp)).then(() => {
+                    if (signal.sdp.type === 'offer') {
+                        peer.createAnswer().then(answer => {
+                            peer.setLocalDescription(answer);
+                            this.socket.emit('returning_signal', {
+                                signal: { type: 'sdp', sdp: answer },
+                                callerID: callerID
+                            });
+                        });
+                    }
                 });
-            });
-
-            return peer;
+            } else if (signal.type === 'candidate') {
+                peer.addIceCandidate(new RTCIceCandidate(signal.candidate)).catch(e => console.log(e));
+            }
         },
 
-        handleRemoteStream: function(id, stream) {
+        handleRemoteStream: function(id, stream, track) {
+            if (!stream) stream = new MediaStream([track]);
+
             let videoEl = document.getElementById(`remote-${id}`);
             
             if (!videoEl) {
@@ -282,7 +286,7 @@
                 videoEl.className = 'video-content';
                 videoEl.autoplay = true;
                 videoEl.playsInline = true;
-                
+
                 videoEl.muted = false; 
 
                 const label = document.createElement('div');
@@ -294,40 +298,51 @@
                 this.videoGrid.appendChild(card);
             }
             
-            videoEl.srcObject = stream;
+
+            if (videoEl.srcObject) {
+                videoEl.srcObject.addTrack(track);
+            } else {
+                videoEl.srcObject = stream;
+            }
             
-            videoEl.play().catch(e => console.log("Auto-play blocked, waiting for interaction", e));
+
+            videoEl.play().catch(e => console.log("Autoplay await", e));
         },
 
         toggleCamera: async function() {
             if (!this.isCameraOn) {
                 try {
-                    const videoStream = await navigator.mediaDevices.getUserMedia({
+                    this.videoStream = await navigator.mediaDevices.getUserMedia({
                         video: { width: 320, height: 240, facingMode: this.currentFacingMode }
                     });
-                    const videoTrack = videoStream.getVideoTracks()[0];
+                    const videoTrack = this.videoStream.getVideoTracks()[0];
 
-                    this.localVideo.srcObject = videoStream;
+            
+                    this.localVideo.srcObject = this.videoStream;
                     this.localVideo.style.display = 'block';
                     this.videoPlaceholder.style.display = 'none';
 
-                    this.localStream.addTrack(videoTrack);
-                    
+   
                     for (let id in this.peers) {
-                        const sender = this.peers[id].getSenders().find(s => s.track && s.track.kind === 'video');
-                        if (sender) sender.replaceTrack(videoTrack);
-                        else this.peers[id].addTrack(videoTrack, this.localStream);
+                        const peer = this.peers[id];
+                        const sender = peer.getSenders().find(s => s.track && s.track.kind === 'video') 
+                                    || peer.getSenders().find(s => s.track === null); 
+                        
+                        if (sender) {
+                            console.log(`Replacing track for ${id}`);
+                            sender.replaceTrack(videoTrack);
+                        } else {
+                            console.warn("No video sender found via transceiver");
+                        }
                     }
 
                     this.isCameraOn = true;
-                    document.getElementById('btn-toggle-cam').innerText = "📷 CAM OFF";
-                    document.getElementById('btn-toggle-cam').classList.add('active');
-                    document.getElementById('btn-switch-cam').style.display = 'inline-block';
-
-                    videoTrack.onended = () => { this.stopCamera(); };
+                    this.updateCamBtn(true);
+                    
+                    videoTrack.onended = () => this.stopCamera();
 
                 } catch (e) {
-                    alert("無法開啟相機：" + e.message);
+                    alert("無法開啟相機: " + e.message);
                 }
             } else {
                 this.stopCamera();
@@ -335,17 +350,19 @@
         },
 
         stopCamera: function() {
-            const videoTracks = this.localStream.getVideoTracks();
-            videoTracks.forEach(track => {
-                track.stop();
-                this.localStream.removeTrack(track);
-            });
+            if (this.videoStream) {
+                this.videoStream.getTracks().forEach(t => t.stop());
+                this.videoStream = null;
+            }
+            for (let id in this.peers) {
+                const sender = this.peers[id].getSenders().find(s => s.track && s.track.kind === 'video');
+                if (sender) sender.replaceTrack(null);
+            }
+
             this.localVideo.style.display = 'none';
             this.videoPlaceholder.style.display = 'flex';
             this.isCameraOn = false;
-            document.getElementById('btn-toggle-cam').innerText = "📷 CAM ON";
-            document.getElementById('btn-toggle-cam').classList.remove('active');
-            document.getElementById('btn-switch-cam').style.display = 'none';
+            this.updateCamBtn(false);
         },
 
         switchCamera: function() {
@@ -355,17 +372,29 @@
             setTimeout(() => this.toggleCamera(), 300);
         },
 
+        updateCamBtn: function(isOn) {
+            const btn = document.getElementById('btn-toggle-cam');
+            const switchBtn = document.getElementById('btn-switch-cam');
+            if(isOn) {
+                btn.innerText = "📷 CAM OFF";
+                btn.classList.add('active');
+                switchBtn.style.display = 'inline-block';
+            } else {
+                btn.innerText = "📷 CAM ON";
+                btn.classList.remove('active');
+                switchBtn.style.display = 'none';
+            }
+        },
+
         bindPTTLogic: function() {
             const startTalk = (e) => {
                 if(e.cancelable) e.preventDefault();
                 if (this.isChannelBusy || !this.localStream) return;
                 
                 this.isTalking = true;
-                const audioTrack = this.localStream.getAudioTracks()[0];
-                if(audioTrack) audioTrack.enabled = true;
-
+                this.localStream.getAudioTracks()[0].enabled = true;
                 this.socket.emit('start_talking', localStorage.getItem('ny_room_id'));
-                this.updateUI(true);
+                this.updatePTTUI(true);
             };
 
             const stopTalk = (e) => {
@@ -373,11 +402,9 @@
                 if (!this.isTalking) return;
 
                 this.isTalking = false;
-                const audioTrack = this.localStream.getAudioTracks()[0];
-                if(audioTrack) audioTrack.enabled = false;
-
+                this.localStream.getAudioTracks()[0].enabled = false;
                 this.socket.emit('stop_talking', localStorage.getItem('ny_room_id'));
-                this.updateUI(false);
+                this.updatePTTUI(false);
             };
 
             this.pttBtn.addEventListener('mousedown', startTalk);
@@ -386,8 +413,8 @@
             this.pttBtn.addEventListener('touchend', stopTalk, { passive: false });
         },
 
-        updateUI: function(talking) {
-            if(talking) {
+        updatePTTUI: function(isTx) {
+            if(isTx) {
                 this.pttBtn.classList.add('active');
                 this.pttBtn.innerText = "TRANSMITTING";
                 this.statusText.innerText = "● ON AIR";
@@ -404,97 +431,62 @@
 
         bindSocketEvents: function() {
             const s = this.socket;
-            
-            s.on('room_created', ({ roomId, hostToken }) => {
-                this.enterRoom(roomId, hostToken, true);
-            });
+            s.on('room_created', ({ roomId, hostToken }) => this.enterRoom(roomId, hostToken, true));
             
             s.on('joined_success', ({ roomId, isHost, allUsers }) => {
                 this.enterRoom(roomId, null, isHost);
-                allUsers.forEach(userID => {
-                    const peer = this.createPeer(userID, this.socket.id, this.localStream);
-                    this.peers[userID] = peer;
-                });
+                allUsers.forEach(id => this.initiateOffer(id));
             });
 
-            s.on('user_joined_signal', ({ signal, callerID }) => {
-                if (signal.type === 'sdp') {
-                    const peer = this.addPeer(signal, callerID, this.localStream);
-                    this.peers[callerID] = peer;
-                } else if (signal.type === 'candidate' && this.peers[callerID]) {
-                    this.peers[callerID].addIceCandidate(new RTCIceCandidate(signal.candidate));
-                }
-            });
-
-            s.on('receiving_returned_signal', ({ signal, id }) => {
-                if (signal.type === 'sdp') {
-                    this.peers[id].setRemoteDescription(new RTCSessionDescription(signal.sdp));
-                } else if (signal.type === 'candidate') {
-                    this.peers[id].addIceCandidate(new RTCIceCandidate(signal.candidate));
-                }
-            });
+            s.on('user_joined_signal', (payload) => this.handleIncomingSignal(payload));
+            s.on('receiving_returned_signal', (payload) => this.handleIncomingSignal(payload));
 
             s.on('user_left', (id) => {
-                if (this.peers[id]) {
-                    this.peers[id].close();
-                    delete this.peers[id];
-                }
+                if (this.peers[id]) { this.peers[id].close(); delete this.peers[id]; }
                 const el = document.getElementById(`card-${id}`);
                 if (el) el.remove();
             });
 
-            s.on('update_user_count', (count) => {
-                const badge = document.getElementById('user-count-display');
-                badge.style.display = 'block';
-                badge.innerText = `ONLINE: ${count}`;
+            s.on('update_user_count', (c) => {
+                const b = document.getElementById('user-count-display');
+                b.style.display = 'block'; b.innerText = `ONLINE: ${c}`;
             });
 
-            s.on('channel_busy', (speakerId) => {
-                if (speakerId === this.socket.id) return;
+            s.on('channel_busy', (id) => {
+                if (id === this.socket.id) return;
                 this.isChannelBusy = true;
-                this.pttBtn.disabled = true;
-                this.pttBtn.innerText = "RECEIVING...";
-                this.statusText.innerText = "● INCOMING SIGNAL";
-                this.statusText.style.color = "#198754";
+                this.pttBtn.disabled = true; this.pttBtn.innerText = "RECEIVING...";
+                this.statusText.innerText = "● INCOMING SIGNAL"; this.statusText.style.color = "#198754";
                 this.ledRx.classList.add('active');
             });
 
             s.on('channel_free', () => {
                 this.isChannelBusy = false;
-                this.pttBtn.disabled = false;
-                this.pttBtn.innerText = "HOLD TO TALK";
-                this.statusText.innerText = "CHANNEL READY";
-                this.statusText.style.color = "#6c757d";
+                this.pttBtn.disabled = false; this.pttBtn.innerText = "HOLD TO TALK";
+                this.statusText.innerText = "CHANNEL READY"; this.statusText.style.color = "#6c757d";
                 this.ledRx.classList.remove('active');
             });
-
-            s.on('room_destroyed', () => { alert('HOST TERMINATED CHANNEL'); this.leaveRoom(); });
+            
+            s.on('room_destroyed', () => { alert('HOST DESTROYED CHANNEL'); this.leaveRoom(); });
         },
 
         createRoom: function() { this.socket.emit('create_room'); },
-        
-        enterRoom: function(roomId, token, isHost) {
-            if (token) localStorage.setItem('ny_host_token', token);
-            localStorage.setItem('ny_room_id', roomId);
+        enterRoom: function(id, token, isHost) {
+            if(token) localStorage.setItem('ny_host_token', token);
+            localStorage.setItem('ny_room_id', id);
             document.getElementById('lobby-view').style.display = 'none';
             document.getElementById('room-view').style.display = 'flex';
-            document.getElementById('room-id-display').innerText = roomId;
-            this.statusText.innerText = "CHANNEL READY";
-            if (!this.isChannelBusy) this.pttBtn.disabled = false;
+            document.getElementById('room-id-display').innerText = id;
+            this.p2pStatus.style.display = "inline-block";
             if(isHost) document.getElementById('host-destroy-btn').style.display = 'block';
         },
-
         leaveRoom: function() { location.reload(); },
-        destroyRoom: function() { 
-            if(confirm('Terminate All?')) this.socket.emit('destroy_room', { roomId: localStorage.getItem('ny_room_id'), token: localStorage.getItem('ny_host_token') });
-        },
-        
+        destroyRoom: function() { if(confirm('Destroy?')) this.socket.emit('destroy_room', { roomId: localStorage.getItem('ny_room_id'), token: localStorage.getItem('ny_host_token') }); },
         checkAutoLogin: function() {
-            const savedRoom = localStorage.getItem('ny_room_id');
-            if (savedRoom) document.getElementById('room-code-input').value = savedRoom;
+            const id = localStorage.getItem('ny_room_id');
+            if(id) document.getElementById('room-code-input').value = id;
         }
     };
-
     window.onload = () => App.init();
 </script>
 </body>
